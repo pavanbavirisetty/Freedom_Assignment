@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Freedom Content Generator</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0f172a;
+        color: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 3rem 1rem;
+      }
+      .container {
+        width: min(960px, 100%);
+        padding: 2rem;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.8);
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: clamp(2rem, 5vw, 2.75rem);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      form {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+      }
+      input[type="text"] {
+        flex: 1 1 260px;
+        padding: 0.75rem 1rem;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background: rgba(148, 163, 184, 0.2);
+        color: inherit;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #38bdf8;
+        background: rgba(148, 163, 184, 0.35);
+      }
+      button {
+        padding: 0.75rem 1.5rem;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+        color: #0f172a;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      button:not(:disabled):hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px -12px rgba(56, 189, 248, 0.65);
+      }
+      #status {
+        min-height: 1.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        color: #f8fafc;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1.5rem;
+      }
+      .card {
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+      }
+      .card img {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+      }
+      .card-body {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .headline {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+      }
+      .caption {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        margin: 0;
+        color: #cbd5f5;
+      }
+      .source {
+        font-size: 0.85rem;
+        color: #38bdf8;
+        text-decoration: none;
+        align-self: flex-start;
+      }
+      @media (max-width: 600px) {
+        body {
+          padding: 2rem 1rem;
+        }
+        .container {
+          padding: 1.5rem;
+        }
+        form {
+          flex-direction: column;
+        }
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Generate Industry Visuals</h1>
+      <form id="generate-form">
+        <input
+          id="industry-input"
+          type="text"
+          name="industry"
+          placeholder="e.g. Renewable Energy"
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Generate</button>
+      </form>
+      <div id="status"></div>
+      <section id="results" class="gallery"></section>
+    </main>
+
+    <script>
+      const form = document.getElementById("generate-form");
+      const industryInput = document.getElementById("industry-input");
+      const statusEl = document.getElementById("status");
+      const resultsEl = document.getElementById("results");
+
+      function setLoading(isLoading) {
+        const button = form.querySelector("button");
+        button.disabled = isLoading;
+        button.textContent = isLoading ? "Generating..." : "Generate";
+      }
+
+      function renderResults(results) {
+        resultsEl.innerHTML = "";
+        results.forEach((item) => {
+          const card = document.createElement("article");
+          card.className = "card";
+
+          const img = document.createElement("img");
+          img.src = item.image_url;
+          img.alt = item.headline;
+
+          const body = document.createElement("div");
+          body.className = "card-body";
+
+          const headline = document.createElement("h2");
+          headline.className = "headline";
+          headline.textContent = item.headline;
+
+          const caption = document.createElement("p");
+          caption.className = "caption";
+          caption.textContent = item.caption;
+
+          body.appendChild(headline);
+          body.appendChild(caption);
+
+          if (item.source_url) {
+            const source = document.createElement("a");
+            source.className = "source";
+            source.href = item.source_url;
+            source.target = "_blank";
+            source.rel = "noopener noreferrer";
+            source.textContent = "View source";
+            body.appendChild(source);
+          }
+
+          card.appendChild(img);
+          card.appendChild(body);
+          resultsEl.appendChild(card);
+        });
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const industry = industryInput.value.trim();
+        if (!industry) {
+          statusEl.textContent = "Please enter an industry name.";
+          return;
+        }
+
+        setLoading(true);
+        statusEl.textContent = "Generating ideas and images. This may take a minute.";
+        resultsEl.innerHTML = "";
+
+        try {
+          const response = await fetch("/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ industry }),
+          });
+
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.detail || "Unexpected error");
+          }
+
+          if (payload.status === "empty") {
+            statusEl.textContent = payload.message;
+            return;
+          }
+
+          renderResults(payload.results || []);
+          statusEl.textContent = `Generated ${payload.results.length} assets for "${industry}".`;
+        } catch (error) {
+          console.error(error);
+          statusEl.textContent = error.message || "Failed to generate assets.";
+        } finally {
+          setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>
+
