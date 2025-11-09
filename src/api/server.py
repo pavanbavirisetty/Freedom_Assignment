@@ -122,7 +122,7 @@ async def generate_stream(request: Request, industry: str) -> StreamingResponse:
     thread.start()
 
     async def event_generator():
-        yield _format_sse("status", {"message": f"Generating assets for '{industry}'..."})
+        yield _format_sse("status", {"message": f"Generating content for '{industry}'... This may take a while depending on the system configuration."})
         loop = asyncio.get_running_loop()
         while True:
             item = await loop.run_in_executor(None, queue.get)
