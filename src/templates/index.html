@@ -278,7 +278,7 @@
 
         eventSource.addEventListener("complete", (evt) => {
           const data = JSON.parse(evt.data);
-          statusEl.textContent = data.message || `Finished generating assets for "${industry}".`;
+          statusEl.textContent = data.message || `Finished generating content for "${industry}", This may take a while depending on the system configuration.`;
           setLoading(false);
           eventSource.close();
           eventSource = null;
