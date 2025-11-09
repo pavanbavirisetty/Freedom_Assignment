@@ -4,8 +4,7 @@ import json
 import os
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
-from typing import Generator
+from typing import Generator, Iterator
 
 from src.images.generator import CreativeEngine
 from src.llm.idea_generator import IdeaGenerator
@@ -39,7 +38,7 @@ def _noop_context() -> Generator[None, None, None]:
     yield
 
 
-def run_pipeline(industry: str | None = None) -> list[InstagramAsset]:
+def pipeline_stream(industry: str | None = None) -> Iterator[InstagramAsset]:
     context = _temporary_settings_override(industry=industry) if industry else _noop_context()
     with context:
         settings = get_settings()
@@ -53,12 +52,12 @@ def run_pipeline(industry: str | None = None) -> list[InstagramAsset]:
         articles = news_service.collect_articles()
         if not articles:
             logger.warning("No articles available; aborting.")
-            return []
+            return
 
         ideas = idea_generator.generate_ideas(articles)
         if not ideas:
             logger.warning("No viral ideas generated; aborting.")
-            return []
+            return
 
         assets: list[InstagramAsset] = []
         timestamp_dir = settings.output_dir / datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -70,12 +69,13 @@ def run_pipeline(industry: str | None = None) -> list[InstagramAsset]:
                 image_result = creative_engine.create_asset(idea, output_dir=timestamp_dir)
                 asset = InstagramAsset(idea=idea, caption=caption, image_path=image_result.image_path)
                 assets.append(asset)
+                yield asset
             except Exception as exc:  # pylint: disable=broad-except
                 logger.exception("Failed to create asset for idea '%s': %s", idea.headline, exc)
 
         if not assets:
             logger.warning("No assets created.")
-            return []
+            return
 
         metadata = [
             {
@@ -93,7 +93,10 @@ def run_pipeline(industry: str | None = None) -> list[InstagramAsset]:
             json.dump(metadata, fp, indent=2, ensure_ascii=False)
 
         logger.info("Pipeline complete. Assets saved to %s", timestamp_dir)
-        return assets
+
+
+def run_pipeline(industry: str | None = None) -> list[InstagramAsset]:
+    return list(pipeline_stream(industry))
 
 
 if __name__ == "__main__":

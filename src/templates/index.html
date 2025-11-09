@@ -159,6 +159,7 @@
       const industryInput = document.getElementById("industry-input");
       const statusEl = document.getElementById("status");
       const resultsEl = document.getElementById("results");
+      let eventSource = null;
 
       function setLoading(isLoading) {
         const button = form.querySelector("button");
@@ -215,36 +216,99 @@
         }
 
         setLoading(true);
-        statusEl.textContent = "Generating ideas and images. This may take a minute.";
+        statusEl.textContent = "Generating ideas and images. This may take a while depending on the system configuration.";
         resultsEl.innerHTML = "";
 
-        try {
-          const response = await fetch("/generate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ industry }),
-          });
-
-          const payload = await response.json();
-          if (!response.ok) {
-            throw new Error(payload.detail || "Unexpected error");
-          }
-
-          if (payload.status === "empty") {
-            statusEl.textContent = payload.message;
-            return;
-          }
-
-          renderResults(payload.results || []);
-          statusEl.textContent = `Generated ${payload.results.length} assets for "${industry}".`;
-        } catch (error) {
-          console.error(error);
-          statusEl.textContent = error.message || "Failed to generate assets.";
-        } finally {
-          setLoading(false);
+        if (eventSource) {
+          eventSource.close();
         }
+
+        const streamUrl = `/generate-stream?industry=${encodeURIComponent(industry)}&t=${Date.now()}`;
+        eventSource = new EventSource(streamUrl);
+
+        eventSource.addEventListener("status", (evt) => {
+          const data = JSON.parse(evt.data);
+          statusEl.textContent = data.message || "Starting generation...";
+        });
+
+        eventSource.addEventListener("asset", (evt) => {
+          const data = JSON.parse(evt.data);
+          statusEl.textContent = `Generated "${data.headline}". Continuing...`;
+          const existing = Array.from(resultsEl.children).some(
+            (card) => card.dataset.imageUrl === data.image_url
+          );
+          if (!existing) {
+            const card = document.createElement("article");
+            card.className = "card";
+            card.dataset.imageUrl = data.image_url;
+
+            const img = document.createElement("img");
+            img.src = data.image_url;
+            img.alt = data.headline;
+
+            const body = document.createElement("div");
+            body.className = "card-body";
+
+            const headline = document.createElement("h2");
+            headline.className = "headline";
+            headline.textContent = data.headline;
+
+            const caption = document.createElement("p");
+            caption.className = "caption";
+            caption.textContent = data.caption;
+
+            body.appendChild(headline);
+            body.appendChild(caption);
+
+            if (data.source_url) {
+              const source = document.createElement("a");
+              source.className = "source";
+              source.href = data.source_url;
+              source.target = "_blank";
+              source.rel = "noopener noreferrer";
+              source.textContent = "View source";
+              body.appendChild(source);
+            }
+
+            card.appendChild(img);
+            card.appendChild(body);
+            resultsEl.appendChild(card);
+          }
+        });
+
+        eventSource.addEventListener("complete", (evt) => {
+          const data = JSON.parse(evt.data);
+          statusEl.textContent = data.message || `Finished generating assets for "${industry}".`;
+          setLoading(false);
+          eventSource.close();
+          eventSource = null;
+        });
+
+        eventSource.addEventListener("empty", (evt) => {
+          const data = JSON.parse(evt.data);
+          statusEl.textContent = data.message || "No assets were generated.";
+          setLoading(false);
+          eventSource.close();
+          eventSource = null;
+        });
+
+        eventSource.addEventListener("error", (evt) => {
+          try {
+            if (evt.data) {
+              const data = JSON.parse(evt.data);
+              statusEl.textContent = data.message || "Failed to generate assets.";
+            } else {
+              statusEl.textContent = "Connection lost. Please try again.";
+            }
+          } catch (error) {
+            statusEl.textContent = "Failed to generate assets.";
+          }
+          setLoading(false);
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+        });
       });
     </script>
   </body>
